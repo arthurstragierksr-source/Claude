@@ -274,42 +274,26 @@
 
   async function loadFX() {
     try {
-      const r = await fetch('https://open.er-api.com/v6/latest/USD');
+      const r = await fetch('/api/fx');
       const d = await r.json();
-      if (d.rates?.EUR) { fx = d.rates.EUR; save('fx', fx); }
+      if (d.rate) { fx = d.rate; save('fx', fx); }
     } catch {}
   }
 
-  // Data fetching — corsproxy.io passes requests through without caching
-  const PROXY = 'https://corsproxy.io/?';
-
   async function fetchQuote(ticker) {
-    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d&t=${Date.now()}`;
-    const r = await fetch(PROXY + encodeURIComponent(url));
+    const r = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
-    const m = d.chart.result[0].meta;
-    const price = m.regularMarketPrice;
-    const prev  = m.chartPreviousClose ?? m.previousClose;
-    const change = price - prev;
-    return { price, prev, change, pct: (change / prev) * 100 };
+    if (d.error) throw new Error(d.error);
+    return { price: d.price, prev: d.price - d.change, change: d.change, pct: d.pct };
   }
 
   async function fetchTargets(ticker) {
-    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=financialData&t=${Date.now()}`;
-    const r = await fetch(PROXY + encodeURIComponent(url));
+    const r = await fetch(`/api/targets?ticker=${encodeURIComponent(ticker)}`);
     if (!r.ok) return null;
     const d = await r.json();
-    const fd = d?.quoteSummary?.result?.[0]?.financialData;
-    if (!fd) return null;
-    const result = {
-      low:  fd.targetLowPrice?.raw  ?? null,
-      mean: fd.targetMeanPrice?.raw ?? null,
-      high: fd.targetHighPrice?.raw ?? null,
-    };
-    // return null if no targets available
-    if (!result.low && !result.mean && !result.high) return null;
-    return result;
+    if (!d.low && !d.mean && !d.high) return null;
+    return d;
   }
 
   async function refresh(quiet = false) {
