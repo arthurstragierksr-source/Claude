@@ -1,5 +1,3 @@
 {
-  "rewrites": [
-    { "source": "/api/quote/:ticker", "destination": "/api/quote?ticker=:ticker" }
-  ]
+  "cleanUrls": true
 }

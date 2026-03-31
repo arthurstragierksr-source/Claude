@@ -446,21 +446,42 @@
       if (e.key === 'Enter') document.getElementById('fx-set-btn').click();
     });
 
+    // Use local backend when on localhost, CORS proxy otherwise
+    const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const CORS = 'https://corsproxy.io/?';
+
     async function fetchFXRate() {
       try {
-        const r = await fetch('/api/fx');
+        let r;
+        if (IS_LOCAL) {
+          r = await fetch('/api/fx');
+        } else {
+          r = await fetch('https://open.er-api.com/v6/latest/USD');
+        }
         const d = await r.json();
-        if (d.rate) { fxRate = d.rate; saveFX(); }
+        const rate = d.rate ?? d.rates?.EUR;
+        if (rate) { fxRate = rate; saveFX(); }
       } catch {}
     }
 
-    // ---- Price fetching via local proxy ----
+    // ---- Price fetching ----
     async function fetchPrice(ticker) {
-      const r = await fetch(`/api/quote/${encodeURIComponent(ticker)}`);
+      let r;
+      if (IS_LOCAL) {
+        r = await fetch(`/api/quote/${encodeURIComponent(ticker)}`);
+      } else {
+        const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+        r = await fetch(CORS + encodeURIComponent(yhUrl));
+      }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
       if (d.error) throw new Error(d.error);
-      return { price: d.price, change: d.change, changePct: d.changePct, prev: d.prev };
+      // Local API returns flat object; Yahoo Finance returns nested
+      if (d.price !== undefined) return { price: d.price, change: d.change, changePct: d.changePct, prev: d.prev };
+      const meta = d.chart.result[0].meta;
+      const price = meta.regularMarketPrice;
+      const prev  = meta.chartPreviousClose || meta.previousClose;
+      return { price, change: price - prev, changePct: ((price - prev) / prev) * 100, prev };
     }
 
     async function refreshPrices(silent = false) {
@@ -669,9 +690,7 @@
 
     // ---- Init ----
     renderAll();
-    fetchFXRate().then(() => refreshPrices()).catch(() => {
-      document.getElementById('last-updated').textContent = 'Run: npm install && npm start — then open http://localhost:3000';
-    });
+    fetchFXRate().then(() => refreshPrices());
   </script>
 </body>
 </html>
