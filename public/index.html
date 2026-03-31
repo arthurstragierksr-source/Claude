@@ -184,7 +184,7 @@
   </div>
 
   <!-- Forecast -->
-  <div id="forecast-section" style="display:none">
+  <div id="forecast-section">
     <div class="section-title">
       Analyst Price Targets &amp; Forecast
       <span class="pill">12-month targets</span>
@@ -280,11 +280,11 @@
     } catch {}
   }
 
-  // Data fetching
-  const PROXY = 'https://api.allorigins.win/raw?url=';
+  // Data fetching — corsproxy.io passes requests through without caching
+  const PROXY = 'https://corsproxy.io/?';
 
   async function fetchQuote(ticker) {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d&t=${Date.now()}`;
     const r = await fetch(PROXY + encodeURIComponent(url));
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
@@ -296,17 +296,20 @@
   }
 
   async function fetchTargets(ticker) {
-    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=financialData`;
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=financialData&t=${Date.now()}`;
     const r = await fetch(PROXY + encodeURIComponent(url));
     if (!r.ok) return null;
     const d = await r.json();
     const fd = d?.quoteSummary?.result?.[0]?.financialData;
     if (!fd) return null;
-    return {
+    const result = {
       low:  fd.targetLowPrice?.raw  ?? null,
       mean: fd.targetMeanPrice?.raw ?? null,
       high: fd.targetHighPrice?.raw ?? null,
     };
+    // return null if no targets available
+    if (!result.low && !result.mean && !result.high) return null;
+    return result;
   }
 
   async function refresh(quiet = false) {
@@ -327,10 +330,21 @@
   }
 
   async function loadAllTargets() {
+    if (!portfolio.length) return;
+    document.getElementById('fc-stocks').innerHTML =
+      '<div style="color:var(--muted);font-size:.85rem;padding:16px 0">Loading analyst targets…</div>';
     const results = await Promise.allSettled(portfolio.map(s => fetchTargets(s.ticker)));
+    let gotAny = false;
     results.forEach((res, i) => {
-      if (res.status === 'fulfilled' && res.value) targets[portfolio[i].ticker] = res.value;
+      if (res.status === 'fulfilled' && res.value) {
+        targets[portfolio[i].ticker] = res.value;
+        gotAny = true;
+      }
     });
+    if (!gotAny) {
+      document.getElementById('fc-stocks').innerHTML =
+        '<div style="color:var(--muted);font-size:.85rem;padding:16px 0">⚠️ Could not load analyst targets. These stocks may not have coverage data.</div>';
+    }
     renderForecast();
   }
 
@@ -419,8 +433,6 @@
   function renderForecast() {
     const tickers = portfolio.filter(s => targets[s.ticker]);
     if (!tickers.length) return;
-
-    document.getElementById('forecast-section').style.display = 'block';
 
     // Portfolio-level totals for each scenario
     let bearCur=0, baseCur=0, bullCur=0;
