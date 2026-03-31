@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Portfolio Tracker</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3248;
+      --text: #e8eaf6;
+      --text-muted: #7b8099;
+      --green: #00c896;
+      --green-bg: rgba(0, 200, 150, 0.1);
+      --red: #ff4d6d;
+      --red-bg: rgba(255, 77, 109, 0.1);
+      --accent: #6c63ff;
+      --accent-light: rgba(108, 99, 255, 0.15);
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.35);
+    }
+    [data-theme="light"] {
+      --bg: #f0f2f8;
+      --surface: #ffffff;
+      --surface2: #f5f6fa;
+      --border: #e0e3ef;
+      --text: #1a1d27;
+      --text-muted: #7b8099;
+      --accent-light: rgba(108, 99, 255, 0.08);
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    .logo { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
+    .logo span { color: var(--accent); }
+
+    .header-controls { display: flex; gap: 10px; align-items: center; }
+
+    button {
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { filter: brightness(1.15); }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--border); }
+
+    .btn-icon {
+      background: var(--surface2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+    .btn-icon:hover { color: var(--text); background: var(--border); }
+
+    main { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
+
+    /* Summary */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      box-shadow: var(--shadow);
+    }
+    .summary-card .label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .summary-card .value { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.5px; }
+    .summary-card .sub { font-size: 0.85rem; margin-top: 6px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .badge.up { background: var(--green-bg); color: var(--green); }
+    .badge.down { background: var(--red-bg); color: var(--red); }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .toolbar h2 { font-size: 1rem; font-weight: 600; }
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      margin-right: 6px;
+      animation: none;
+    }
+    .status-dot.live { background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    #last-updated { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* Stock cards */
+    .stocks { display: flex; flex-direction: column; gap: 12px; }
+
+    .stock-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 18px;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .stock-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+    .stock-logo {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--accent);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .stock-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 10px; }
+
+    .stock-info .name { font-weight: 600; font-size: 0.95rem; }
+    .stock-info .meta { font-size: 0.82rem; color: var(--text-muted); margin-top: 3px; }
+    .stock-info .meta .ticker {
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-light);
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+    }
+
+    .stock-right { text-align: right; }
+    .stock-right .total { font-size: 1.2rem; font-weight: 700; }
+    .stock-right .price-row {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .stock-right .changes { margin-top: 8px; display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+    .stock-right .abs-change { font-size: 0.85rem; font-weight: 500; }
+
+    .up-text { color: var(--green); }
+    .down-text { color: var(--red); }
+
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      transform: translateY(16px);
+      transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h3 { font-size: 1.1rem; margin-bottom: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
+    .form-group input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-actions button { flex: 1; padding: 10px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; }
+
+    /* Delete button */
+    .delete-btn {
+      background: none;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      padding: 6px;
+      border-radius: 6px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.2s, color 0.2s;
+    }
+    .stock-card:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { color: var(--red); }
+
+    /* EUR/USD row */
+    .fx-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 24px;
+      font-size: 0.85rem;
+    }
+    .fx-row .fx-label { color: var(--text-muted); }
+    .fx-row .fx-rate { font-weight: 700; color: var(--accent); }
+    .fx-row input {
+      width: 90px;
+      padding: 4px 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .fx-row input:focus { border-color: var(--accent); }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    @media (max-width: 600px) {
+      header { padding: 16px; }
+      main { padding: 20px 14px; }
+      .stock-card { padding: 16px; gap: 12px; }
+      .stock-logo { width: 40px; height: 40px; font-size: 0.85rem; }
+      .stock-right .total { font-size: 1rem; }
+      .summary-card .value { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Stock<span>Folio</span></div>
+    <div class="header-controls">
+      <button class="btn-icon" id="refresh-btn" title="Refresh prices">&#8635;</button>
+      <button class="btn-icon" id="theme-btn" title="Toggle theme">&#9790;</button>
+      <button class="btn btn-primary" id="add-btn">+ Add Stock</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Summary -->
+    <div class="summary">
+      <div class="summary-card">
+        <div class="label">Total Value</div>
+        <div class="value" id="total-value">—</div>
+        <div class="sub" id="total-change"></div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Today's Gain/Loss</div>
+        <div class="value" id="daily-pl">—</div>
+        <div class="sub" id="daily-pl-pct"></div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Holdings</div>
+        <div class="value" id="holdings-count">0</div>
+        <div class="sub" style="color:var(--text-muted)">positions</div>
+      </div>
+    </div>
+
+    <!-- FX rate -->
+    <div class="fx-row">
+      <span class="fx-label">USD/EUR rate:</span>
+      <span class="fx-rate" id="fx-display">—</span>
+      <input type="number" id="fx-input" step="0.0001" placeholder="e.g. 0.92" title="Override exchange rate" />
+      <button class="btn btn-ghost" style="padding:4px 10px;font-size:0.8rem" id="fx-set-btn">Set</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <h2><span class="status-dot" id="status-dot"></span>Portfolio</h2>
+      <span id="last-updated"></span>
+    </div>
+
+    <!-- Stock list -->
+    <div class="stocks" id="stocks-container">
+      <div class="empty-state"><div class="icon">📈</div><p>Add a stock to get started</p></div>
+    </div>
+  </main>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h3 id="modal-title">Add Stock</h3>
+      <div class="form-group">
+        <label>Ticker Symbol (e.g. AAPL, NBIS)</label>
+        <input type="text" id="input-ticker" placeholder="TICKER" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Company Name</label>
+        <input type="text" id="input-name" placeholder="Company Inc." />
+      </div>
+      <div class="form-group">
+        <label>Number of Shares</label>
+        <input type="number" id="input-shares" placeholder="0" min="0" step="any" />
+      </div>
+      <div class="form-group">
+        <label>Average Buy Price (USD) <span style="color:var(--text-muted)">(optional)</span></label>
+        <input type="number" id="input-avg" placeholder="0.00" min="0" step="any" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- State ----
+    const DEFAULT_STOCKS = [
+      { ticker: 'NBIS',  name: 'Nebius Group N.V.-A', shares: 111,  avgBuy: null },
+      { ticker: 'ONDS',  name: 'Ondas Inc',            shares: 1000, avgBuy: null },
+      { ticker: 'IBRX',  name: 'ImmunityBio Inc',      shares: 335,  avgBuy: null },
+    ];
+
+    let portfolio = loadPortfolio();
+    let prices    = {};      // { TICKER: { price, change, changePct, prev } }
+    let fxRate    = loadFX(); // USD → EUR
+    let editIndex = null;
+
+    // ---- Persistence ----
+    function loadPortfolio() {
+      try { return JSON.parse(localStorage.getItem('portfolio')) || DEFAULT_STOCKS; }
+      catch { return DEFAULT_STOCKS; }
+    }
+    function savePortfolio() { localStorage.setItem('portfolio', JSON.stringify(portfolio)); }
+    function loadFX() {
+      const v = parseFloat(localStorage.getItem('fxRate'));
+      return isNaN(v) ? 0.92 : v;
+    }
+    function saveFX() { localStorage.setItem('fxRate', fxRate); }
+
+    // ---- Theme ----
+    const themeBtn = document.getElementById('theme-btn');
+    let theme = localStorage.getItem('theme') || 'dark';
+    applyTheme(theme);
+    themeBtn.addEventListener('click', () => {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('theme', theme);
+      applyTheme(theme);
+    });
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : '');
+      themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
+    }
+
+    // ---- FX ----
+    document.getElementById('fx-set-btn').addEventListener('click', () => {
+      const v = parseFloat(document.getElementById('fx-input').value);
+      if (!isNaN(v) && v > 0) { fxRate = v; saveFX(); renderAll(); }
+    });
+    document.getElementById('fx-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('fx-set-btn').click();
+    });
+
+    async function fetchFXRate() {
+      try {
+        const r = await fetch('https://open.er-api.com/v6/latest/USD');
+        const d = await r.json();
+        if (d.rates && d.rates.EUR) {
+          fxRate = d.rates.EUR;
+          saveFX();
+        }
+      } catch {}
+    }
+
+    // ---- Price fetching via Yahoo Finance ----
+    async function fetchPrice(ticker) {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      const meta = d.chart.result[0].meta;
+      const price  = meta.regularMarketPrice;
+      const prev   = meta.chartPreviousClose || meta.previousClose;
+      const change = price - prev;
+      const changePct = (change / prev) * 100;
+      return { price, change, changePct, prev };
+    }
+
+    async function refreshPrices(silent = false) {
+      if (!portfolio.length) return;
+      const dot = document.getElementById('status-dot');
+      dot.className = 'status-dot';
+      if (!silent) setStatusText('Fetching prices…');
+
+      const results = await Promise.allSettled(portfolio.map(s => fetchPrice(s.ticker)));
+      let anySuccess = false;
+      results.forEach((res, i) => {
+        if (res.status === 'fulfilled') {
+          prices[portfolio[i].ticker] = res.value;
+          anySuccess = true;
+        }
+      });
+
+      dot.className = anySuccess ? 'status-dot live' : 'status-dot';
+      const now = new Date();
+      document.getElementById('last-updated').textContent =
+        anySuccess ? 'Updated ' + now.toLocaleTimeString() : 'Could not fetch prices';
+
+      renderAll();
+    }
+
+    function setStatusText(t) {
+      document.getElementById('last-updated').textContent = t;
+    }
+
+    // ---- Rendering ----
+    function fmt(n, digits = 2, currency = 'EUR') {
+      return new Intl.NumberFormat('de-DE', { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+    }
+    function fmtUSD(n) {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+    }
+
+    function getInitials(name) {
+      return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    }
+
+    function renderAll() {
+      document.getElementById('fx-display').textContent = fxRate.toFixed(4);
+      document.getElementById('fx-input').value = '';
+      renderSummary();
+      renderStocks();
+    }
+
+    function renderSummary() {
+      let totalEUR = 0, totalDayGain = 0, totalCost = 0;
+      portfolio.forEach(s => {
+        const p = prices[s.ticker];
+        if (!p) return;
+        const value = p.price * s.shares * fxRate;
+        totalEUR += value;
+        totalDayGain += p.change * s.shares * fxRate;
+      });
+
+      document.getElementById('holdings-count').textContent = portfolio.length;
+      document.getElementById('total-value').textContent = totalEUR > 0 ? fmt(totalEUR) : '—';
+
+      const dayEl = document.getElementById('daily-pl');
+      const dayPct = document.getElementById('daily-pl-pct');
+      if (totalEUR > 0) {
+        dayEl.textContent = fmt(totalDayGain);
+        dayEl.className = 'value ' + (totalDayGain >= 0 ? 'up-text' : 'down-text');
+        const prevTotal = totalEUR - totalDayGain;
+        const pct = prevTotal > 0 ? (totalDayGain / prevTotal) * 100 : 0;
+        dayPct.innerHTML = `<span class="badge ${totalDayGain >= 0 ? 'up' : 'down'}">${totalDayGain >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}%</span>`;
+      } else {
+        dayEl.textContent = '—';
+        dayPct.textContent = '';
+      }
+    }
+
+    function renderStocks() {
+      const container = document.getElementById('stocks-container');
+      if (portfolio.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📈</div><p>Add a stock to get started</p></div>';
+        return;
+      }
+      container.innerHTML = portfolio.map((s, i) => buildCard(s, i)).join('');
+      container.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); deleteStock(+btn.dataset.index); });
+      });
+      container.querySelectorAll('.stock-card').forEach(card => {
+        card.addEventListener('click', () => openEdit(+card.dataset.index));
+      });
+    }
+
+    function buildCard(s, i) {
+      const p = prices[s.ticker];
+      const valueEUR = p ? p.price * s.shares * fxRate : null;
+      const dayGainEUR = p ? p.change * s.shares * fxRate : null;
+      const isUp = p ? p.change >= 0 : true;
+
+      const logoHtml = `<div class="stock-logo">${getInitials(s.name)}</div>`;
+
+      const priceRow = p
+        ? `${fmtUSD(p.price)} &middot; ${s.shares.toLocaleString('de-DE')} shares`
+        : `${s.shares.toLocaleString('de-DE')} shares`;
+
+      const changesHtml = p ? `
+        <span class="abs-change ${isUp ? 'up-text' : 'down-text'}">${isUp ? '+' : ''}${fmt(dayGainEUR)}</span>
+        <span class="badge ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(p.changePct).toFixed(2)}%</span>
+      ` : `<span class="badge" style="background:var(--surface2);color:var(--text-muted)">—</span>`;
+
+      return `
+        <div class="stock-card" data-index="${i}" style="cursor:pointer" title="Click to edit">
+          ${logoHtml}
+          <div class="stock-info">
+            <div class="name">${escHtml(s.name)}</div>
+            <div class="meta"><span class="ticker">${escHtml(s.ticker)}</span>${priceRow}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="stock-right">
+              <div class="total">${valueEUR !== null ? fmt(valueEUR) : '<span class="skeleton" style="width:90px;height:22px;display:inline-block"></span>'}</div>
+              <div class="changes">${changesHtml}</div>
+            </div>
+            <button class="delete-btn" data-index="${i}" title="Remove">✕</button>
+          </div>
+        </div>`;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ---- Modal ----
+    const modal = document.getElementById('modal');
+    document.getElementById('add-btn').addEventListener('click', openAdd);
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+    document.getElementById('modal-save').addEventListener('click', saveStock);
+
+    function openAdd() {
+      editIndex = null;
+      document.getElementById('modal-title').textContent = 'Add Stock';
+      document.getElementById('input-ticker').value = '';
+      document.getElementById('input-name').value = '';
+      document.getElementById('input-shares').value = '';
+      document.getElementById('input-avg').value = '';
+      document.getElementById('input-ticker').disabled = false;
+      modal.classList.add('open');
+      document.getElementById('input-ticker').focus();
+    }
+
+    function openEdit(i) {
+      editIndex = i;
+      const s = portfolio[i];
+      document.getElementById('modal-title').textContent = 'Edit Position';
+      document.getElementById('input-ticker').value = s.ticker;
+      document.getElementById('input-name').value = s.name;
+      document.getElementById('input-shares').value = s.shares;
+      document.getElementById('input-avg').value = s.avgBuy || '';
+      document.getElementById('input-ticker').disabled = true;
+      modal.classList.add('open');
+      document.getElementById('input-shares').focus();
+    }
+
+    function closeModal() { modal.classList.remove('open'); }
+
+    async function saveStock() {
+      const ticker = document.getElementById('input-ticker').value.trim().toUpperCase();
+      const name   = document.getElementById('input-name').value.trim();
+      const shares = parseFloat(document.getElementById('input-shares').value);
+      const avg    = parseFloat(document.getElementById('input-avg').value) || null;
+
+      if (!ticker || !name || isNaN(shares) || shares < 0) {
+        alert('Please fill in ticker, name, and a valid share count.'); return;
+      }
+
+      if (editIndex !== null) {
+        portfolio[editIndex] = { ...portfolio[editIndex], name, shares, avgBuy: avg };
+      } else {
+        if (portfolio.find(s => s.ticker === ticker)) { alert('Ticker already in portfolio.'); return; }
+        portfolio.push({ ticker, name, shares, avgBuy: avg });
+      }
+
+      savePortfolio();
+      closeModal();
+      renderAll();
+      if (editIndex === null || !prices[ticker]) {
+        const fresh = portfolio.find(s => s.ticker === ticker);
+        if (fresh) {
+          try { prices[ticker] = await fetchPrice(ticker); } catch {}
+        }
+        renderAll();
+      }
+    }
+
+    function deleteStock(i) {
+      if (!confirm(`Remove ${portfolio[i].name} from portfolio?`)) return;
+      delete prices[portfolio[i].ticker];
+      portfolio.splice(i, 1);
+      savePortfolio();
+      renderAll();
+    }
+
+    // ---- Refresh button ----
+    document.getElementById('refresh-btn').addEventListener('click', () => refreshPrices());
+
+    // ---- Auto refresh every 60s ----
+    setInterval(() => refreshPrices(true), 60_000);
+
+    // ---- Init ----
+    renderAll();
+    fetchFXRate().then(() => refreshPrices());
+  </script>
+</body>
+</html>
