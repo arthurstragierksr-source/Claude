@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio Tracker</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --card2: #22263a;
+      --border: #2e3248;
+      --text: #e8eaf6;
+      --muted: #7b8099;
+      --green: #00c896;
+      --green-bg: rgba(0,200,150,0.12);
+      --red: #ff4d6d;
+      --red-bg: rgba(255,77,109,0.12);
+      --accent: #6c63ff;
+      --accent-bg: rgba(108,99,255,0.15);
+      --r: 14px;
+    }
+    [data-theme="light"] {
+      --bg: #f0f2f8; --card: #fff; --card2: #f5f6fa;
+      --border: #dde0ef; --text: #1a1d27; --muted: #7b8099;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* Header */
+    header { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+    .logo { font-size: 1.15rem; font-weight: 800; }
+    .logo span { color: var(--accent); }
+    .hbtns { display: flex; gap: 8px; }
+    button { border: none; cursor: pointer; font-family: inherit; transition: all .18s; }
+    .ibtn { background: var(--card2); color: var(--muted); border: 1px solid var(--border); border-radius: 8px; width: 36px; height: 36px; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+    .ibtn:hover { color: var(--text); }
+    .pbtn { background: var(--accent); color: #fff; border-radius: 8px; padding: 8px 16px; font-size: .875rem; font-weight: 600; }
+    .pbtn:hover { filter: brightness(1.15); }
+
+    /* Main */
+    main { max-width: 900px; margin: 0 auto; padding: 28px 16px; }
+
+    /* Summary strip */
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+    .scard { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; }
+    .scard .lbl { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+    .scard .val { font-size: 1.6rem; font-weight: 800; letter-spacing: -.5px; }
+    .scard .sub { margin-top: 6px; font-size: .82rem; }
+
+    /* FX bar */
+    .fxbar { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; margin-bottom: 20px; font-size: .84rem; flex-wrap: wrap; }
+    .fxbar .lbl { color: var(--muted); }
+    .fxbar .rate { font-weight: 700; color: var(--accent); }
+    .fxbar input { width: 88px; padding: 4px 8px; background: var(--card2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: .84rem; font-family: inherit; outline: none; }
+    .fxbar input:focus { border-color: var(--accent); }
+    .sbtn { background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: .8rem; }
+    .sbtn:hover { background: var(--border); }
+
+    /* Toolbar */
+    .tbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .tbar h2 { font-size: .95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+    .dot.live { background: var(--green); animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #ts { font-size: .77rem; color: var(--muted); }
+
+    /* Cards */
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .stkcard {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 18px 20px; display: grid;
+      grid-template-columns: 48px 1fr auto auto;
+      align-items: center; gap: 14px; cursor: pointer; transition: border-color .2s, transform .15s;
+    }
+    .stkcard:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .icon { width: 48px; height: 48px; border-radius: 11px; background: var(--card2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .9rem; color: var(--accent); flex-shrink: 0; }
+    .sname { font-weight: 600; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .smeta { font-size: .8rem; color: var(--muted); margin-top: 3px; }
+    .ticker-tag { background: var(--accent-bg); color: var(--accent); font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 5px; }
+    .sright { text-align: right; }
+    .stotal { font-size: 1.15rem; font-weight: 700; }
+    .schanges { display: flex; gap: 6px; justify-content: flex-end; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+    .sabs { font-size: .82rem; font-weight: 600; }
+    .badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; font-size: .78rem; font-weight: 700; }
+    .badge.up { background: var(--green-bg); color: var(--green); }
+    .badge.down { background: var(--red-bg); color: var(--red); }
+    .badge.na { background: var(--card2); color: var(--muted); }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+    .delbtn { background: none; color: transparent; font-size: 1rem; padding: 6px; border-radius: 6px; line-height: 1; flex-shrink: 0; }
+    .stkcard:hover .delbtn { color: var(--muted); }
+    .delbtn:hover { color: var(--red) !important; }
+
+    /* Empty */
+    .empty { text-align: center; padding: 52px 20px; color: var(--muted); }
+    .empty .eicon { font-size: 2.8rem; margin-bottom: 10px; }
+
+    /* Modal */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s; padding: 16px; }
+    .overlay.open { opacity: 1; pointer-events: all; }
+    .modal { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 26px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,.5); transform: translateY(14px); transition: transform .2s; }
+    .overlay.open .modal { transform: translateY(0); }
+    .modal h3 { font-size: 1.05rem; margin-bottom: 18px; }
+    .fg { margin-bottom: 14px; }
+    .fg label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 5px; }
+    .fg input { width: 100%; padding: 9px 12px; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .92rem; font-family: inherit; outline: none; }
+    .fg input:focus { border-color: var(--accent); }
+    .mbtns { display: flex; gap: 10px; margin-top: 18px; }
+    .mbtns button { flex: 1; padding: 10px; border-radius: 8px; font-size: .9rem; font-weight: 600; }
+    .mbtns .cancel { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+    .mbtns .save { background: var(--accent); color: #fff; }
+
+    @media(max-width:600px) {
+      .summary { grid-template-columns: 1fr 1fr; }
+      .summary .scard:last-child { display: none; }
+      .stkcard { grid-template-columns: 42px 1fr auto auto; padding: 14px; gap: 10px; }
+      .icon { width: 42px; height: 42px; }
+      .stotal { font-size: 1rem; }
+      .scard .val { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">Stock<span>Folio</span></div>
+  <div class="hbtns">
+    <button class="ibtn" id="refresh-btn" title="Refresh">&#8635;</button>
+    <button class="ibtn" id="theme-btn">&#9790;</button>
+    <button class="pbtn" id="add-btn">+ Add</button>
+  </div>
+</header>
+
+<main>
+  <div class="summary">
+    <div class="scard">
+      <div class="lbl">Total Value</div>
+      <div class="val" id="s-total">—</div>
+      <div class="sub" id="s-total-sub"></div>
+    </div>
+    <div class="scard">
+      <div class="lbl">Today's P&L</div>
+      <div class="val" id="s-pl">—</div>
+      <div class="sub" id="s-pl-sub"></div>
+    </div>
+    <div class="scard">
+      <div class="lbl">Positions</div>
+      <div class="val" id="s-count">0</div>
+      <div class="sub" style="color:var(--muted)">holdings</div>
+    </div>
+  </div>
+
+  <div class="fxbar">
+    <span class="lbl">USD/EUR:</span>
+    <span class="rate" id="fx-val">—</span>
+    <input id="fx-in" type="number" step="0.0001" placeholder="e.g. 0.92" />
+    <button class="sbtn" id="fx-btn">Set</button>
+  </div>
+
+  <div class="tbar">
+    <h2><span class="dot" id="dot"></span> Portfolio</h2>
+    <span id="ts"></span>
+  </div>
+
+  <div class="list" id="list">
+    <div class="empty"><div class="eicon">📈</div><p>Add a stock to get started</p></div>
+  </div>
+</main>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="m-title">Add Stock</h3>
+    <div class="fg"><label>Ticker (e.g. AAPL)</label><input id="m-ticker" autocomplete="off" placeholder="TICKER" /></div>
+    <div class="fg"><label>Company Name</label><input id="m-name" placeholder="Company Inc." /></div>
+    <div class="fg"><label>Shares</label><input id="m-shares" type="number" placeholder="0" min="0" step="any" /></div>
+    <div class="fg"><label>Avg Buy Price in USD <span style="color:var(--muted)">(optional)</span></label><input id="m-avg" type="number" placeholder="0.00" step="any" /></div>
+    <div class="mbtns">
+      <button class="cancel" id="m-cancel">Cancel</button>
+      <button class="save" id="m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────
+  const DEFAULTS = [
+    { ticker:'NBIS', name:'Nebius Group N.V.-A', shares:111,  avg:null },
+    { ticker:'ONDS', name:'Ondas Inc',           shares:1000, avg:null },
+    { ticker:'IBRX', name:'ImmunityBio Inc',     shares:335,  avg:null },
+  ];
+  let portfolio = load('pf') || DEFAULTS;
+  let quotes    = {};
+  let fx        = load('fx') || 0.92;
+  let editIdx   = null;
+
+  function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
+  function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+  // ── Theme ──────────────────────────────────────────────
+  let theme = localStorage.getItem('theme') || 'dark';
+  applyTheme(theme);
+  document.getElementById('theme-btn').onclick = () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', theme);
+    applyTheme(theme);
+  };
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : '');
+    document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+
+  // ── FX ────────────────────────────────────────────────
+  document.getElementById('fx-btn').onclick = () => {
+    const v = parseFloat(document.getElementById('fx-in').value);
+    if (v > 0) { fx = v; save('fx', fx); render(); }
+  };
+  document.getElementById('fx-in').onkeydown = e => { if (e.key==='Enter') document.getElementById('fx-btn').click(); };
+
+  async function loadFX() {
+    try {
+      const r = await fetch('https://open.er-api.com/v6/latest/USD');
+      const d = await r.json();
+      if (d.rates?.EUR) { fx = d.rates.EUR; save('fx', fx); }
+    } catch {}
+  }
+
+  // ── Quotes ────────────────────────────────────────────
+  const PROXY = 'https://api.allorigins.win/raw?url=';
+
+  async function fetchQuote(ticker) {
+    const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+    const r = await fetch(PROXY + encodeURIComponent(yUrl));
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    const m = d.chart.result[0].meta;
+    const price = m.regularMarketPrice;
+    const prev  = m.chartPreviousClose ?? m.previousClose;
+    const change = price - prev;
+    return { price, prev, change, pct: (change / prev) * 100 };
+  }
+
+  async function refresh(quiet = false) {
+    if (!portfolio.length) return;
+    document.getElementById('dot').className = 'dot';
+    if (!quiet) document.getElementById('ts').textContent = 'Fetching…';
+    const results = await Promise.allSettled(portfolio.map(s => fetchQuote(s.ticker)));
+    let ok = 0;
+    results.forEach((res, i) => {
+      if (res.status === 'fulfilled') { quotes[portfolio[i].ticker] = res.value; ok++; }
+    });
+    document.getElementById('dot').className = ok ? 'dot live' : 'dot';
+    document.getElementById('ts').textContent = ok
+      ? 'Updated ' + new Date().toLocaleTimeString()
+      : 'Could not fetch prices';
+    render();
+  }
+
+  document.getElementById('refresh-btn').onclick = () => refresh();
+  setInterval(() => refresh(true), 60000);
+
+  // ── Render ────────────────────────────────────────────
+  const eur = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(n);
+  const usd = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const initials = s => s.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+
+  function render() {
+    document.getElementById('fx-val').textContent = fx.toFixed(4);
+    document.getElementById('fx-in').value = '';
+    document.getElementById('s-count').textContent = portfolio.length;
+
+    // Summary totals
+    let totalEUR = 0, dayGain = 0;
+    portfolio.forEach(s => {
+      const q = quotes[s.ticker]; if (!q) return;
+      totalEUR += q.price * s.shares * fx;
+      dayGain  += q.change * s.shares * fx;
+    });
+    const hasData = totalEUR > 0;
+    document.getElementById('s-total').textContent = hasData ? eur(totalEUR) : '—';
+    const plEl = document.getElementById('s-pl');
+    plEl.textContent = hasData ? eur(dayGain) : '—';
+    plEl.className = 'val ' + (dayGain >= 0 ? 'up' : 'down');
+    document.getElementById('s-total-sub').textContent = '';
+    document.getElementById('s-pl-sub').innerHTML = hasData
+      ? `<span class="badge ${dayGain>=0?'up':'down'}">${dayGain>=0?'▲':'▼'} ${Math.abs((dayGain/(totalEUR-dayGain))*100).toFixed(2)}%</span>`
+      : '';
+
+    // Stock list
+    const list = document.getElementById('list');
+    if (!portfolio.length) {
+      list.innerHTML = '<div class="empty"><div class="eicon">📈</div><p>Add a stock to get started</p></div>';
+      return;
+    }
+    list.innerHTML = portfolio.map((s, i) => {
+      const q = quotes[s.ticker];
+      const val   = q ? eur(q.price * s.shares * fx) : null;
+      const dg    = q ? q.change * s.shares * fx : null;
+      const isUp  = q ? q.change >= 0 : true;
+      const clr   = isUp ? 'up' : 'down';
+      return `
+        <div class="stkcard" data-i="${i}">
+          <div class="icon">${esc(initials(s.name))}</div>
+          <div>
+            <div class="sname">${esc(s.name)}</div>
+            <div class="smeta">
+              <span class="ticker-tag">${esc(s.ticker)}</span>
+              ${q ? usd(q.price)+' · ' : ''}${s.shares.toLocaleString('de-DE')} shares
+            </div>
+          </div>
+          <div class="sright">
+            <div class="stotal">${val ?? '<span style="color:var(--muted)">—</span>'}</div>
+            <div class="schanges">
+              ${q
+                ? `<span class="sabs ${clr}">${dg>=0?'+':''}${eur(dg)}</span>
+                   <span class="badge ${clr}">${isUp?'▲':'▼'} ${Math.abs(q.pct).toFixed(2)}%</span>`
+                : '<span class="badge na">—</span>'}
+            </div>
+          </div>
+          <button class="delbtn" data-i="${i}" title="Remove">✕</button>
+        </div>`;
+    }).join('');
+
+    list.querySelectorAll('.stkcard').forEach(el => {
+      el.onclick = () => openEdit(+el.dataset.i);
+    });
+    list.querySelectorAll('.delbtn').forEach(btn => {
+      btn.onclick = e => { e.stopPropagation(); del(+btn.dataset.i); };
+    });
+  }
+
+  // ── Modal ─────────────────────────────────────────────
+  const overlay = document.getElementById('overlay');
+  document.getElementById('add-btn').onclick  = openAdd;
+  document.getElementById('m-cancel').onclick = closeModal;
+  overlay.onclick = e => { if (e.target === overlay) closeModal(); };
+  document.getElementById('m-save').onclick   = saveStock;
+
+  function openAdd() {
+    editIdx = null;
+    document.getElementById('m-title').textContent = 'Add Stock';
+    ['m-ticker','m-name','m-shares','m-avg'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('m-ticker').disabled = false;
+    overlay.classList.add('open');
+    document.getElementById('m-ticker').focus();
+  }
+  function openEdit(i) {
+    editIdx = i;
+    const s = portfolio[i];
+    document.getElementById('m-title').textContent = 'Edit Position';
+    document.getElementById('m-ticker').value  = s.ticker;
+    document.getElementById('m-name').value    = s.name;
+    document.getElementById('m-shares').value  = s.shares;
+    document.getElementById('m-avg').value     = s.avg ?? '';
+    document.getElementById('m-ticker').disabled = true;
+    overlay.classList.add('open');
+    document.getElementById('m-shares').focus();
+  }
+  function closeModal() { overlay.classList.remove('open'); }
+
+  async function saveStock() {
+    const ticker = document.getElementById('m-ticker').value.trim().toUpperCase();
+    const name   = document.getElementById('m-name').value.trim();
+    const shares = parseFloat(document.getElementById('m-shares').value);
+    const avg    = parseFloat(document.getElementById('m-avg').value) || null;
+    if (!ticker || !name || isNaN(shares) || shares < 0) { alert('Fill in all required fields.'); return; }
+    if (editIdx !== null) {
+      portfolio[editIdx] = { ...portfolio[editIdx], name, shares, avg };
+    } else {
+      if (portfolio.find(s => s.ticker === ticker)) { alert('Already in portfolio.'); return; }
+      portfolio.push({ ticker, name, shares, avg });
+    }
+    save('pf', portfolio);
+    closeModal();
+    render();
+    if (!quotes[ticker]) {
+      try { quotes[ticker] = await fetchQuote(ticker); render(); } catch {}
+    }
+  }
+
+  function del(i) {
+    if (!confirm(`Remove ${portfolio[i].name}?`)) return;
+    delete quotes[portfolio[i].ticker];
+    portfolio.splice(i, 1);
+    save('pf', portfolio);
+    render();
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  render();
+  loadFX().then(() => refresh());
+</script>
+</body>
+</html>
