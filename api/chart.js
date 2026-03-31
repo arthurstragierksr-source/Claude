@@ -1,49 +1,34 @@
 const https = require('https');
 
-// Simple in-memory cache (per serverless instance)
 const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
 
-function get(hostname, path) {
+function get(url) {
   return new Promise((resolve, reject) => {
-    const req = https.get({
-      hostname,
-      path,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://finance.yahoo.com/',
-        'Origin': 'https://finance.yahoo.com',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
-      }
-    }, res => {
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString() }));
+    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => resolve({ status: res.statusCode, body }));
     });
     req.on('error', reject);
     req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
-async function fetchWithRetry(ticker, range, attempt = 0) {
-  const hosts = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
-  const host = hosts[attempt % 2];
-  const path = `/v8/finance/chart/${ticker}?interval=1d&range=${range}`;
+function startDate(range) {
+  const days = { '1mo': 35, '3mo': 95, '6mo': 185, '1y': 370, '2y': 740 };
+  const d = new Date(Date.now() - (days[range] || 185) * 86400000);
+  return d.toISOString().slice(0, 10).replace(/-/g, '');
+}
 
-  const res = await get(host, path);
-
-  if (res.status === 429 && attempt < 4) {
-    await new Promise(r => setTimeout(r, (attempt + 1) * 1000));
-    return fetchWithRetry(ticker, range, attempt + 1);
-  }
-
-  if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
-  return JSON.parse(res.body);
+function parseCSV(csv) {
+  return csv.trim().split('\n')
+    .filter(l => l && !l.startsWith('Date'))
+    .map(line => {
+      const [date, open, high, low, close, volume] = line.split(',');
+      return { time: date.trim(), open: +open, high: +high, low: +low, close: +close, volume: +volume || 0 };
+    })
+    .filter(c => c.time && !isNaN(c.close) && c.close > 0);
 }
 
 module.exports = async (req, res) => {
@@ -52,29 +37,20 @@ module.exports = async (req, res) => {
   const range  = ['1mo','3mo','6mo','1y','2y'].includes(req.query.range) ? req.query.range : '6mo';
   if (!ticker) return res.status(400).json({ error: 'Missing ticker' });
 
-  const cacheKey = `${ticker}:${range}`;
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return res.json(cached.data);
-  }
+  const key = `${ticker}:${range}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.ts < CACHE_TTL) return res.json(hit.data);
 
   try {
-    const d = await fetchWithRetry(ticker, range);
-    const result = d.chart.result[0];
-    const timestamps = result.timestamp;
-    const q = result.indicators.quote[0];
+    const url = `https://stooq.com/q/d/l/?s=${ticker.toLowerCase()}.us&d1=${startDate(range)}&i=d`;
+    const r = await get(url);
+    if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
 
-    const candles = timestamps.map((t, i) => ({
-      time:   t,
-      open:   q.open[i],
-      high:   q.high[i],
-      low:    q.low[i],
-      close:  q.close[i],
-      volume: q.volume[i] || 0,
-    })).filter(c => c.open != null && c.close != null);
+    const candles = parseCSV(r.body);
+    if (!candles.length) throw new Error('No data — check ticker symbol');
 
     const payload = { ticker, candles };
-    cache.set(cacheKey, { ts: Date.now(), data: payload });
+    cache.set(key, { ts: Date.now(), data: payload });
     res.json(payload);
   } catch (e) {
     res.status(502).json({ error: e.message });

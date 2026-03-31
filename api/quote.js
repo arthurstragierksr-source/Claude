@@ -1,35 +1,20 @@
 const https = require('https');
 
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://finance.yahoo.com/',
-  'Origin': 'https://finance.yahoo.com',
-};
-
-function get(hostname, path) {
+function get(url) {
   return new Promise((resolve, reject) => {
-    const req = https.get({ hostname, path, headers: HEADERS }, res => {
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString() }));
+    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => resolve({ status: res.statusCode, body }));
     });
     req.on('error', reject);
     req.setTimeout(8000, () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
-async function fetchWithRetry(ticker, attempt = 0) {
-  const hosts = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
-  const host = hosts[attempt % 2];
-  const r = await get(host, `/v8/finance/chart/${ticker}?interval=1d&range=1d`);
-  if (r.status === 429 && attempt < 3) {
-    await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 800));
-    return fetchWithRetry(ticker, attempt + 1);
-  }
-  if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
-  return JSON.parse(r.body);
+function daysAgo(n) {
+  const d = new Date(Date.now() - n * 86400000);
+  return d.toISOString().slice(0, 10).replace(/-/g, '');
 }
 
 module.exports = async (req, res) => {
@@ -38,12 +23,30 @@ module.exports = async (req, res) => {
   if (!ticker) return res.status(400).json({ error: 'Missing ticker' });
 
   try {
-    const d = await fetchWithRetry(ticker);
-    const m = d.chart.result[0].meta;
-    const price  = m.regularMarketPrice;
-    const prev   = m.chartPreviousClose ?? m.previousClose;
-    const change = price - prev;
-    res.json({ ticker, price, change, pct: (change / prev) * 100 });
+    // Fetch last 10 trading days — enough to always have prev close
+    const url = `https://stooq.com/q/d/l/?s=${ticker.toLowerCase()}.us&d1=${daysAgo(14)}&i=d`;
+    const r = await get(url);
+    if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+
+    const lines = r.body.trim().split('\n').filter(l => l && !l.startsWith('Date'));
+    if (lines.length < 2) throw new Error('Not enough data');
+
+    const parse = line => {
+      const [date, open, high, low, close, volume] = line.split(',');
+      return { date, open: +open, high: +high, low: +low, close: +close, volume: +volume };
+    };
+
+    const current  = parse(lines[lines.length - 1]);
+    const previous = parse(lines[lines.length - 2]);
+    const change   = current.close - previous.close;
+
+    res.json({
+      ticker,
+      price:  current.close,
+      prev:   previous.close,
+      change,
+      pct:    (change / previous.close) * 100,
+    });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
