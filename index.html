@@ -448,27 +448,19 @@
 
     async function fetchFXRate() {
       try {
-        const r = await fetch('https://open.er-api.com/v6/latest/USD');
+        const r = await fetch('/api/fx');
         const d = await r.json();
-        if (d.rates && d.rates.EUR) {
-          fxRate = d.rates.EUR;
-          saveFX();
-        }
+        if (d.rate) { fxRate = d.rate; saveFX(); }
       } catch {}
     }
 
-    // ---- Price fetching via Yahoo Finance ----
+    // ---- Price fetching via local proxy ----
     async function fetchPrice(ticker) {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
-      const r = await fetch(url);
+      const r = await fetch(`/api/quote/${encodeURIComponent(ticker)}`);
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
-      const meta = d.chart.result[0].meta;
-      const price  = meta.regularMarketPrice;
-      const prev   = meta.chartPreviousClose || meta.previousClose;
-      const change = price - prev;
-      const changePct = (change / prev) * 100;
-      return { price, change, changePct, prev };
+      if (d.error) throw new Error(d.error);
+      return { price: d.price, change: d.change, changePct: d.changePct, prev: d.prev };
     }
 
     async function refreshPrices(silent = false) {
@@ -677,7 +669,9 @@
 
     // ---- Init ----
     renderAll();
-    fetchFXRate().then(() => refreshPrices());
+    fetchFXRate().then(() => refreshPrices()).catch(() => {
+      document.getElementById('last-updated').textContent = 'Run: npm install && npm start — then open http://localhost:3000';
+    });
   </script>
 </body>
 </html>
