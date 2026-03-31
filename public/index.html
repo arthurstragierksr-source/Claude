@@ -332,18 +332,20 @@
     } catch {}
   }
 
-  // Fetch directly from Yahoo Finance — browser IPs are never blocked,
-  // only cloud server IPs are. This is the most reliable approach.
+  // Yahoo Finance v7 quote — corsDomain param enables CORS headers from any browser
   async function fetchQuote(ticker) {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=2d`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`Yahoo Finance: ${r.status}`);
+    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}&corsDomain=finance.yahoo.com&formatted=false&lang=en-US&region=US`;
+    const r = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
-    const m = d.chart.result[0].meta;
-    const price  = m.regularMarketPrice;
-    const prev   = m.chartPreviousClose ?? m.previousClose;
-    const change = price - prev;
-    return { price, prev, change, pct: (change / prev) * 100 };
+    const q = d.quoteResponse?.result?.[0];
+    if (!q) throw new Error('No quote data');
+    return {
+      price:  q.regularMarketPrice,
+      prev:   q.regularMarketPreviousClose,
+      change: q.regularMarketChange,
+      pct:    q.regularMarketChangePercent,
+    };
   }
 
   async function fetchTargets(ticker) {
@@ -680,8 +682,8 @@
       const days = { '1mo':35,'3mo':95,'6mo':185,'1y':370,'2y':740 };
       const period1 = Math.floor((Date.now() - (days[activeRange]||185) * 86400000) / 1000);
       const period2 = Math.floor(Date.now() / 1000);
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&period1=${period1}&period2=${period2}&events=history`;
-      const r = await fetch(url);
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&period1=${period1}&period2=${period2}&events=history&corsDomain=finance.yahoo.com`;
+      const r = await fetch(url, { mode: 'cors', credentials: 'omit' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       const result = d.chart.result[0];
