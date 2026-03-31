@@ -1,34 +1,11 @@
-const https = require('https');
+const { yahooGet } = require('./_session');
 
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
 
-function get(url) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
-      let body = '';
-      res.on('data', c => body += c);
-      res.on('end', () => resolve({ status: res.statusCode, body }));
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
-  });
-}
-
 function startDate(range) {
   const days = { '1mo': 35, '3mo': 95, '6mo': 185, '1y': 370, '2y': 740 };
-  const d = new Date(Date.now() - (days[range] || 185) * 86400000);
-  return d.toISOString().slice(0, 10).replace(/-/g, '');
-}
-
-function parseCSV(csv) {
-  return csv.trim().split('\n')
-    .filter(l => l && !l.startsWith('Date'))
-    .map(line => {
-      const [date, open, high, low, close, volume] = line.split(',');
-      return { time: date.trim(), open: +open, high: +high, low: +low, close: +close, volume: +volume || 0 };
-    })
-    .filter(c => c.time && !isNaN(c.close) && c.close > 0);
+  return Math.floor((Date.now() - (days[range] || 185) * 86400000) / 1000);
 }
 
 module.exports = async (req, res) => {
@@ -42,12 +19,29 @@ module.exports = async (req, res) => {
   if (hit && Date.now() - hit.ts < CACHE_TTL) return res.json(hit.data);
 
   try {
-    const url = `https://stooq.com/q/d/l/?s=${ticker.toLowerCase()}.us&d1=${startDate(range)}&i=d`;
-    const r = await get(url);
-    if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+    const period1 = startDate(range);
+    const period2 = Math.floor(Date.now() / 1000);
+    const r = await yahooGet(
+      'query1.finance.yahoo.com',
+      `/v8/finance/chart/${ticker}?interval=1d&period1=${period1}&period2=${period2}&events=history`
+    );
+    if (r.status !== 200) throw new Error(`HTTP ${r.status}: ${r.body.slice(0, 100)}`);
 
-    const candles = parseCSV(r.body);
-    if (!candles.length) throw new Error('No data — check ticker symbol');
+    const d = JSON.parse(r.body);
+    const result = d.chart.result[0];
+    const timestamps = result.timestamp;
+    const q = result.indicators.quote[0];
+
+    const candles = timestamps.map((t, i) => ({
+      time:   t,
+      open:   q.open[i],
+      high:   q.high[i],
+      low:    q.low[i],
+      close:  q.close[i],
+      volume: q.volume[i] || 0,
+    })).filter(c => c.open != null && c.close != null);
+
+    if (!candles.length) throw new Error('No candle data returned');
 
     const payload = { ticker, candles };
     cache.set(key, { ts: Date.now(), data: payload });
