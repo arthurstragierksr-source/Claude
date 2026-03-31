@@ -37,6 +37,16 @@ app.get('/api/fx', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`\n  Stock Portfolio Tracker running at http://localhost:${PORT}\n`);
+app.listen(PORT, '0.0.0.0', () => {
+  const { networkInterfaces } = require('os');
+  const nets = networkInterfaces();
+  let localIP = 'localhost';
+  for (const iface of Object.values(nets)) {
+    for (const addr of iface) {
+      if (addr.family === 'IPv4' && !addr.internal) { localIP = addr.address; break; }
+    }
+  }
+  console.log(`\n  Stock Portfolio Tracker`);
+  console.log(`  Local:   http://localhost:${PORT}`);
+  console.log(`  Network: http://${localIP}:${PORT}  ← open this on your iPhone\n`);
 });
