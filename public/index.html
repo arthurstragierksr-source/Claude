@@ -326,18 +326,24 @@
 
   async function loadFX() {
     try {
-      const r = await fetch('/api/fx');
+      const r = await fetch('https://open.er-api.com/v6/latest/USD');
       const d = await r.json();
-      if (d.rate) { fx = d.rate; save('fx', fx); }
+      if (d.rates?.EUR) { fx = d.rates.EUR; save('fx', fx); }
     } catch {}
   }
 
+  // Fetch directly from Yahoo Finance — browser IPs are never blocked,
+  // only cloud server IPs are. This is the most reliable approach.
   async function fetchQuote(ticker) {
-    const r = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
-    if (!r.ok) throw new Error(r.status);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=2d`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Yahoo Finance: ${r.status}`);
     const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    return { price: d.price, prev: d.price - d.change, change: d.change, pct: d.pct };
+    const m = d.chart.result[0].meta;
+    const price  = m.regularMarketPrice;
+    const prev   = m.chartPreviousClose ?? m.previousClose;
+    const change = price - prev;
+    return { price, prev, change, pct: (change / prev) * 100 };
   }
 
   async function fetchTargets(ticker) {
@@ -671,10 +677,20 @@
 
     let candles;
     try {
-      const r = await fetch(`/api/chart?ticker=${ticker}&range=${activeRange}`);
+      const days = { '1mo':35,'3mo':95,'6mo':185,'1y':370,'2y':740 };
+      const period1 = Math.floor((Date.now() - (days[activeRange]||185) * 86400000) / 1000);
+      const period2 = Math.floor(Date.now() / 1000);
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&period1=${period1}&period2=${period2}&events=history`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
-      if (d.error || !d.candles?.length) throw new Error(d.error || 'No data');
-      candles = d.candles;
+      const result = d.chart.result[0];
+      const ts = result.timestamp;
+      const q  = result.indicators.quote[0];
+      candles = ts.map((t, i) => ({
+        time: t, open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i], volume: q.volume[i] || 0
+      })).filter(c => c.open != null && c.close != null);
+      if (!candles.length) throw new Error('No data returned');
     } catch (e) {
       document.getElementById('pane-price').innerHTML = `<div class="chart-loading">Failed to load chart: ${e.message}</div>`;
       return;
