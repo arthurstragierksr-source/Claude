@@ -84,25 +84,33 @@
     /* ── Forecast section ── */
     .section-title { font-size:.95rem; font-weight:600; margin:36px 0 14px; display:flex; align-items:center; gap:8px; }
     .section-title .pill { font-size:.72rem; font-weight:600; background:var(--accent-bg); color:var(--accent); padding:2px 8px; border-radius:999px; }
-    .forecast-note { font-size:.78rem; color:var(--muted); margin-bottom:14px; }
+    .forecast-note { font-size:.78rem; color:var(--muted); margin-bottom:16px; }
 
-    .fc-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
-    .fc-card { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; }
-    .fc-card .fc-lbl { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:8px; }
-    .fc-card .fc-val { font-size:1.4rem; font-weight:800; letter-spacing:-.4px; }
-    .fc-card .fc-sub { font-size:.8rem; margin-top:5px; }
-    .fc-card.bear { border-color:rgba(255,77,109,.3); }
-    .fc-card.base { border-color:rgba(108,99,255,.4); background:var(--accent-bg); }
-    .fc-card.bull { border-color:rgba(0,200,150,.3); }
+    /* Total portfolio target cards */
+    .fc-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+    .fc-tcard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:16px 18px; }
+    .fc-tcard.base { border-color:rgba(108,99,255,.5); background:var(--accent-bg); }
+    .fc-tcard.bear { border-color:rgba(255,77,109,.3); }
+    .fc-tcard.bull { border-color:rgba(0,200,150,.3); }
+    .fc-tcard .tclbl { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
+    .fc-tcard .tcval { font-size:1.35rem; font-weight:800; letter-spacing:-.4px; }
+    .fc-tcard .tcpct { font-size:.82rem; margin-top:5px; }
 
+    /* Per-stock rows */
     .fc-stocks { display:flex; flex-direction:column; gap:10px; }
-    .fc-row { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:14px 18px; display:grid; grid-template-columns:1fr repeat(3,auto); gap:12px; align-items:center; }
-    .fc-row .fc-sname { font-weight:600; font-size:.9rem; }
-    .fc-row .fc-ticker { font-size:.75rem; color:var(--accent); font-weight:700; }
-    .fc-col { text-align:right; }
-    .fc-col .fc-head { font-size:.7rem; color:var(--muted); margin-bottom:3px; }
-    .fc-col .fc-num { font-size:.9rem; font-weight:700; }
-    .fc-col .fc-pct { font-size:.72rem; margin-top:1px; }
+    .fc-row { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:16px 18px; }
+    .fc-row-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
+    .fc-row-top .fc-sname { font-weight:600; font-size:.95rem; }
+    .fc-row-top .fc-ticker { font-size:.78rem; color:var(--accent); font-weight:700; background:var(--accent-bg); padding:1px 6px; border-radius:4px; }
+    .fc-row-top .fc-rec { font-size:.75rem; padding:2px 8px; border-radius:999px; font-weight:700; }
+    .fc-row-top .rec-buy  { background:var(--green-bg); color:var(--green); }
+    .fc-row-top .rec-hold { background:rgba(255,193,7,.15); color:#ffc107; }
+    .fc-row-top .rec-sell { background:var(--red-bg); color:var(--red); }
+    .fc-cols { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .fc-col { background:var(--card2); border-radius:8px; padding:10px 12px; }
+    .fc-col .fc-clbl { font-size:.7rem; color:var(--muted); margin-bottom:4px; }
+    .fc-col .fc-cval { font-size:.95rem; font-weight:700; }
+    .fc-col .fc-cpct { font-size:.72rem; margin-top:2px; }
 
     /* Modal */
     .overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:100; opacity:0; pointer-events:none; transition:opacity .2s; padding:16px; }
@@ -126,9 +134,9 @@
       .icon { width:42px; height:42px; }
       .stotal { font-size:1rem; }
       .scard .val { font-size:1.3rem; }
-      .fc-grid { grid-template-columns:1fr; }
-      .fc-row { grid-template-columns:1fr 1fr; gap:8px; }
-      .fc-row .fc-col:last-child { display:none; }
+      .fc-totals { grid-template-columns:1fr; }
+      .fc-cols { grid-template-columns:1fr 1fr; }
+      .fc-cols .fc-col:last-child { display:none; }
     }
   </style>
 </head>
@@ -186,37 +194,18 @@
   <!-- Forecast -->
   <div id="forecast-section">
     <div class="section-title">
-      Analyst Price Targets &amp; Forecast
-      <span class="pill">12-month targets</span>
+      Analyst Price Targets
+      <span class="pill">Yahoo Finance consensus</span>
     </div>
-    <p class="forecast-note">Based on Wall Street analyst consensus. Past performance does not guarantee future results.</p>
+    <p class="forecast-note">Wall Street analyst consensus (12-month). Tap a stock to edit shares.</p>
 
-    <div class="fc-grid">
-      <div class="fc-card bear">
-        <div class="fc-lbl">Bear (Low target)</div>
-        <div class="fc-val" id="fc-bear-1y">—</div>
-        <div class="fc-sub" id="fc-bear-1y-pct"></div>
-        <div class="fc-sub up" style="margin-top:10px;font-size:.72rem;color:var(--muted)">5-year projection</div>
-        <div class="fc-val" style="font-size:1.1rem;margin-top:4px" id="fc-bear-5y">—</div>
-      </div>
-      <div class="fc-card base">
-        <div class="fc-lbl">Base (Mean target)</div>
-        <div class="fc-val" id="fc-base-1y">—</div>
-        <div class="fc-sub" id="fc-base-1y-pct"></div>
-        <div class="fc-sub" style="margin-top:10px;font-size:.72rem;color:var(--muted)">5-year projection</div>
-        <div class="fc-val" style="font-size:1.1rem;margin-top:4px" id="fc-base-5y">—</div>
-      </div>
-      <div class="fc-card bull">
-        <div class="fc-lbl">Bull (High target)</div>
-        <div class="fc-val" id="fc-bull-1y">—</div>
-        <div class="fc-sub" id="fc-bull-1y-pct"></div>
-        <div class="fc-sub" style="margin-top:10px;font-size:.72rem;color:var(--muted)">5-year projection</div>
-        <div class="fc-val" style="font-size:1.1rem;margin-top:4px" id="fc-bull-5y">—</div>
-      </div>
+    <!-- Total portfolio at targets -->
+    <div class="fc-totals" id="fc-totals"></div>
+
+    <!-- Per-stock breakdown -->
+    <div class="fc-stocks" id="fc-stocks">
+      <div style="color:var(--muted);font-size:.85rem;padding:16px 0">Loading analyst targets…</div>
     </div>
-
-    <div class="section-title" style="margin-top:0">Per Stock Targets</div>
-    <div class="fc-stocks" id="fc-stocks"></div>
   </div>
 </main>
 
@@ -415,78 +404,98 @@
   }
 
   function renderForecast() {
-    const tickers = portfolio.filter(s => targets[s.ticker]);
-    if (!tickers.length) return;
+    const hasSome = portfolio.some(s => targets[s.ticker] && quotes[s.ticker]);
+    if (!hasSome) return;
 
-    // Portfolio-level totals for each scenario
-    let bearCur=0, baseCur=0, bullCur=0;
-    let bear1y=0, base1y=0, bull1y=0;
+    const pct = (cur, tgt) => {
+      if (!cur || !tgt) return '';
+      const p = (tgt - cur) / cur * 100;
+      return `<span class="${p>=0?'up':'down'}">${p>=0?'+':''}${p.toFixed(1)}%</span>`;
+    };
 
+    // ── Portfolio totals ──
+    let curTotal=0, bearTotal=0, baseTotal=0, bullTotal=0;
     portfolio.forEach(s => {
-      const q = quotes[s.ticker];
-      const t = targets[s.ticker];
-      if (!q || !t) return;
-      const cur = q.price * s.shares * fx;
-      bearCur += cur; baseCur += cur; bullCur += cur;
-      if (t.low)  bear1y += t.low  * s.shares * fx;
-      if (t.mean) base1y += t.mean * s.shares * fx;
-      if (t.high) bull1y += t.high * s.shares * fx;
+      const q = quotes[s.ticker]; const t = targets[s.ticker];
+      if (!q) return;
+      curTotal += q.price * s.shares * fx;
+      if (t) {
+        if (t.low)  bearTotal += t.low  * s.shares * fx;
+        if (t.mean) baseTotal += t.mean * s.shares * fx;
+        if (t.high) bullTotal += t.high * s.shares * fx;
+      }
     });
 
-    const compound5 = (val1y, curVal) => {
-      if (!val1y || !curVal) return null;
-      const cagr = val1y / curVal;
-      return curVal * Math.pow(cagr, 5);
+    document.getElementById('fc-totals').innerHTML = `
+      <div class="fc-tcard bear">
+        <div class="tclbl">Bear — Low target</div>
+        <div class="tcval">${bearTotal ? eur(bearTotal) : '—'}</div>
+        <div class="tcpct">${pct(curTotal, bearTotal)}</div>
+      </div>
+      <div class="fc-tcard base">
+        <div class="tclbl">Base — Mean target</div>
+        <div class="tcval">${baseTotal ? eur(baseTotal) : '—'}</div>
+        <div class="tcpct">${pct(curTotal, baseTotal)}</div>
+      </div>
+      <div class="fc-tcard bull">
+        <div class="tclbl">Bull — High target</div>
+        <div class="tcval">${bullTotal ? eur(bullTotal) : '—'}</div>
+        <div class="tcpct">${pct(curTotal, bullTotal)}</div>
+      </div>`;
+
+    // ── Per-stock rows ──
+    const recLabel = r => {
+      if (!r) return '';
+      const map = { strongbuy:'Strong Buy', buy:'Buy', hold:'Hold', underperform:'Underperform', sell:'Sell' };
+      const cls  = (r==='buy'||r==='strongbuy') ? 'rec-buy' : r==='hold' ? 'rec-hold' : 'rec-sell';
+      return `<span class="fc-rec ${cls}">${map[r]||r}</span>`;
     };
 
-    const setFc = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ? eur(val) : '—'; };
-    const setPct = (id, cur, val) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (!cur || !val) { el.textContent = ''; return; }
-      const p = ((val - cur) / cur * 100);
-      el.innerHTML = `<span class="${p>=0?'up':'down'}">${p>=0?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`;
-    };
-
-    setFc('fc-bear-1y', bear1y); setPct('fc-bear-1y-pct', bearCur, bear1y);
-    setFc('fc-base-1y', base1y); setPct('fc-base-1y-pct', baseCur, base1y);
-    setFc('fc-bull-1y', bull1y); setPct('fc-bull-1y-pct', bullCur, bull1y);
-    setFc('fc-bear-5y', compound5(bear1y, bearCur));
-    setFc('fc-base-5y', compound5(base1y, baseCur));
-    setFc('fc-bull-5y', compound5(bull1y, bullCur));
-
-    // Per-stock rows
     document.getElementById('fc-stocks').innerHTML = portfolio.map(s => {
       const q = quotes[s.ticker];
       const t = targets[s.ticker];
-      if (!q || !t) return '';
-      const cur1y = q.price * s.shares * fx;
-      const m1y = t.mean ? t.mean * s.shares * fx : null;
-      const h1y = t.high ? t.high * s.shares * fx : null;
-      const l1y = t.low  ? t.low  * s.shares * fx : null;
-      const cagr = m1y ? m1y / cur1y : null;
-      const m5y = cagr ? cur1y * Math.pow(cagr, 5) : null;
+      if (!q) return '';
+      const cur  = q.price * s.shares * fx;
+      const low  = t?.low  ? t.low  * s.shares * fx : null;
+      const mean = t?.mean ? t.mean * s.shares * fx : null;
+      const high = t?.high ? t.high * s.shares * fx : null;
+      const noTargets = !low && !mean && !high;
       return `
         <div class="fc-row">
-          <div>
-            <div class="fc-sname">${esc(s.name)}</div>
-            <div class="fc-ticker">${esc(s.ticker)} · ${usd(q.price)} now${t.mean ? ' → '+usd(t.mean)+' target' : ''}</div>
+          <div class="fc-row-top">
+            <div>
+              <span class="fc-ticker">${esc(s.ticker)}</span>
+              <span class="fc-sname" style="margin-left:8px">${esc(s.name)}</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              ${t ? recLabel(t.rec) : ''}
+              ${t?.analysts ? `<span style="font-size:.72rem;color:var(--muted)">${t.analysts} analysts</span>` : ''}
+            </div>
           </div>
-          <div class="fc-col">
-            <div class="fc-head">Bear 1Y</div>
-            <div class="fc-num ${l1y&&l1y<cur1y?'down':'up'}">${l1y?eur(l1y):'—'}</div>
-            <div class="fc-pct ${l1y&&l1y<cur1y?'down':'up'}">${l1y?pctStr(cur1y,l1y):''}</div>
-          </div>
-          <div class="fc-col">
-            <div class="fc-head">Base 1Y</div>
-            <div class="fc-num ${m1y&&m1y>=cur1y?'up':'down'}">${m1y?eur(m1y):'—'}</div>
-            <div class="fc-pct ${m1y&&m1y>=cur1y?'up':'down'}">${m1y?pctStr(cur1y,m1y):''}</div>
-          </div>
-          <div class="fc-col">
-            <div class="fc-head">Base 5Y</div>
-            <div class="fc-num up">${m5y?eur(m5y):'—'}</div>
-            <div class="fc-pct up">${m5y?pctStr(cur1y,m5y):''}</div>
-          </div>
+          ${noTargets
+            ? `<div style="font-size:.8rem;color:var(--muted)">No analyst targets available for ${esc(s.ticker)}</div>`
+            : `<div class="fc-cols">
+                <div class="fc-col">
+                  <div class="fc-clbl">Now</div>
+                  <div class="fc-cval">${eur(cur)}</div>
+                  <div class="fc-cpct" style="color:var(--muted)">${usd(q.price)}/share</div>
+                </div>
+                <div class="fc-col">
+                  <div class="fc-clbl">Bear (${t?.low ? usd(t.low) : '—'})</div>
+                  <div class="fc-cval ${low&&low<cur?'down':'up'}">${low ? eur(low) : '—'}</div>
+                  <div class="fc-cpct">${pct(cur, low)}</div>
+                </div>
+                <div class="fc-col">
+                  <div class="fc-clbl">Base (${t?.mean ? usd(t.mean) : '—'})</div>
+                  <div class="fc-cval ${mean&&mean>=cur?'up':'down'}">${mean ? eur(mean) : '—'}</div>
+                  <div class="fc-cpct">${pct(cur, mean)}</div>
+                </div>
+                <div class="fc-col">
+                  <div class="fc-clbl">Bull (${t?.high ? usd(t.high) : '—'})</div>
+                  <div class="fc-cval up">${high ? eur(high) : '—'}</div>
+                  <div class="fc-cpct">${pct(cur, high)}</div>
+                </div>
+              </div>`}
         </div>`;
     }).join('');
   }
